@@ -1,0 +1,73 @@
+name: IXI_DuDoN_x10_joint
+distortion: sr
+scale: 10  # scale factor for sr; acc. ratio for reconstruction
+use_tb_logger: false
+model: joint-optimize    # ['joint-optimize', 'ref-rec']
+data1: True  # ref-rec reconstruct the first modal
+gpu_ids: [2,3]
+dist: True
+mode: IXI   ### data set
+k_loss: False
+
+datasets:
+  train:
+    mode: IXI   ### data set
+    task: rec   # ['rec', 'sr']    
+    scale: 10
+    interval_list: [1]
+    random_reverse: true
+    border_mode: false
+    dataroot_GT: ~/dataset/IXI/MC_MRI/T2   # The training file path of your target image
+    use_shuffle: true
+    n_workers: 2 
+    batch_size: 6
+    crop_size: 256
+    use_flip: True
+    use_rot: True
+    hr_in: True
+  
+  val:
+    mode: IXI    ### data set
+    task: rec    # ['rec', 'sr'] 
+    scale: 10
+    test_size: 256
+    dataroot_GT: ~/dataset/IXI/MC_MRI/test/T2  # The testing file path of your target image
+    hr_in: True
+
+
+network_G:
+  which_model_G: DuDoNet_Loupe
+  c_image: 1
+  nf: 32
+  sparsity: 0.1  # x10 AC
+  image_size: [256,256]  # for IXI
+  stages: 4
+  groups: 4
+  RBs: 12
+
+
+path:
+  pretrain_model_G: ~
+  resume_state: ~
+train:
+  lr_G: !!float 1e-4
+  lr_scheme: CosineAnnealingLR_Restart
+  beta1: 0.9
+  beta2: 0.99
+  niter: 200000
+  warmup_iter: -1
+  T_period: [200000]
+  restarts: [200000]
+  restart_weights: [1]
+  eta_min: !!float 1e-4
+
+  pixel_criterion: l1
+  pixel_weight: 1.0
+  val_freq: !!float 1000
+
+  manual_seed: 0
+
+logger:
+  print_freq: 10
+  save_checkpoint_freq: !!float 5000
+  
