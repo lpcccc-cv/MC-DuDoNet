@@ -183,8 +183,8 @@ class DuDoNet_Loupe(nn.Module):
 
         self.image_channel = opt['c_image']  
 
-        self.channel_in = opt['nf']   # c_i
-        self.channel_fea = opt['nf']  # c_f
+        self.channel_in = opt['nf']   # c_i, default=32
+        self.channel_fea = opt['nf']  # c_f, default=32
         self.iter_num = opt['stages']   # iteration stages T, default=4
 
         image_size = opt['image_size']  
@@ -195,13 +195,15 @@ class DuDoNet_Loupe(nn.Module):
    
         # variable initialization
         basic_block1 = functools.partial(ResidualBlock_noBN, nf=self.channel_fea)
-        self.init_x = make_layer(basic_block1, 12)
+        self.init_x = make_layer(basic_block1, 10)
         
         basic_block2 = functools.partial(ResidualBlock_noBN, nf=self.channel_fea)
-        self.map_y = make_layer(basic_block2, 12)
+        self.map_y = make_layer(basic_block2, 10)
 
         ## DAS module for spatial transformation
         self.dcn_align = DCN_Align(nf=32, groups=4)
+        basic_block3 = functools.partial(ResidualBlock_noBN, nf=self.channel_fea)
+        self.extract_y = make_layer(basic_block3, 10)
 
         ## convolutional layers for feature transformation
         # map x to feature domain 
@@ -255,7 +257,7 @@ class DuDoNet_Loupe(nn.Module):
         # x: target image (b,1,h,w)
         # y: fully-sample reference image (b,1,h,w)
         '''
-        # mask: (1,2,h,w)
+        # predifined mask with size (1,2,h,w)
         # if mask == None, x would be fully sampled target image and we should learn mask using Loupe. 
         The undersampled target image will generate using the learned mask.
         # if mask != None, we use the predefined mask. 
@@ -266,7 +268,8 @@ class DuDoNet_Loupe(nn.Module):
         x = x.repeat(1,self.channel_in,1,1)
         y = y.repeat(1,self.channel_in,1,1)
 
-        if mask == None:
+        # for Loupe, generate mask and get the corresponding under-sampled image
+        if mask == None:  
             b,c,h,w = x.shape
             x_k = real_to_complex(x)
             ## generate mask 
@@ -280,15 +283,17 @@ class DuDoNet_Loupe(nn.Module):
             x_k_under = x_k*mask
             # iFFT into image space
             x_under = complex_to_real(x_k_under)
-        else:
-            mask = mask.repeat(1,self.in_channel,1,1)
+        
+        # for predefined mask
+        else:  
+            mask = mask.repeat(1,self.channel_in,1,1)
             x_under = x
             x_k_under = real_to_complex(x)
             
         # initialize variables
         x_t0 = self.init_x(x_under)
         K_t0 = real_to_complex(x_t0)
-        
+        # extract feature for reference
         y = self.map_y(y)
 
         for i in range(self.iter_num):
@@ -308,6 +313,8 @@ class DuDoNet_Loupe(nn.Module):
             # proximal net for x 
             x_t1 = self.prox_x(DC_x + self.mu_x[i]*(refine_image + refine_k)) # update x    
             x_t0 = x_t1
+            # extract deep feature for y
+            y = self.extract_y(y)
  
         # reconstruct final image
         x_out = self.WAL(torch.cat([x_t0, complex_to_real(K_t0)],1))
