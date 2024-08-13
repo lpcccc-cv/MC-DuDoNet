@@ -42,14 +42,14 @@ sh train_joint.sh
 CUDA_VISIBLE_DEVICES=0 python test_loupe_mask.py
 ```
 ### 3.3. Reconstruction network fine-tuning
-Set your data set path and training parameters in **[configs/only_reconstruction.yaml]**, then run 
+Set your data set path and training parameters in **[configs/only_reconstruction.yaml]**. Set your learned mask path in the dataset file and then run 
 ```bash
 sh train_rec.sh
 ```
 
-## 4、 Model training for conventional MCMRI SR or Reconstruction:
+## 4、 Model training for conventional MCMRI SR or Reconstruction (Predefined masks):
 
-Set your data set path, mask path and training parameters in **[configs/only_reconstruction.yaml]**, then run 
+Set your data set path, mask path and training parameters in **[configs/only_reconstruction.yaml]** and the dataset file, then run 
 ```bash
 sh train_rec.sh
 ```
